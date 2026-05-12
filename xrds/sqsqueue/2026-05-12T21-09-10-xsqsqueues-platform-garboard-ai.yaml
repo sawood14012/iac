@@ -1,0 +1,48 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsqsqueues.platform.garboard.ai
+spec:
+  scope: Namespaced
+  group: platform.garboard.ai
+  names:
+    kind: XSQSQueue
+    plural: xsqsqueues
+    singular: xsqsqueue
+    listKind: XSQSQueueList
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["parameters"]
+              properties:
+                parameters:
+                  type: object
+                  required: ["name", "env", "region", "providerConfigName"]
+                  properties:
+                    name:
+                      type: string
+                    env:
+                      type: string
+                    region:
+                      type: string
+                    providerConfigName:
+                      type: string
+                    reconcilePaused:
+                      type: string
+                      default: "false"
+                    deletionPolicy:
+                      type: string
+                      enum: ["Delete", "Orphan"]
+                      default: "Orphan"
+                    policy:
+                      type: string
+                    queueDetails:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
