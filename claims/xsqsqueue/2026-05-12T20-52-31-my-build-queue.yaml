@@ -1,0 +1,25 @@
+apiVersion: platform.garboard.ai/v1alpha1
+kind: XSQSQueue
+metadata:
+  name: my-build-queue
+  namespace: default
+spec:
+  parameters:
+    name: my_build_queue
+    providerConfigName: aws-default
+    region: us-east-1
+    reconcilePaused: "false"
+    deletionPolicy: Orphan
+    queueDetails:
+      visibilityTimeoutSeconds: 30
+      messageRetentionSeconds: 86400
+    policy: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [{
+          "Effect": "Allow",
+          "Principal": { "Service": "sns.amazonaws.com" },
+          "Action": "sqs:SendMessage",
+          "Resource": "*"
+        }]
+      }
