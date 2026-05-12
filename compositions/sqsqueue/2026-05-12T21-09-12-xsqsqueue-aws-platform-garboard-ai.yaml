@@ -1,0 +1,76 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xsqsqueue.aws.platform.garboard.ai
+  labels:
+    platform.garboard.ai/provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: platform.garboard.ai/v1alpha1
+    kind: XSQSQueue
+  mode: Pipeline
+  pipeline:
+    - step: render-sqs-queue
+      functionRef:
+        name: function-go-template
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $params := .observed.composite.resource.spec.parameters }}
+            {{- $rawName := printf "%s-%s" $params.name $params.env }}
+            {{- $k8sName := $rawName | replace "_" "-" | lower | trunc 63 }}
+            apiVersion: sqs.aws.upbound.io/v1beta1
+            kind: Queue
+            metadata:
+              name: {{ $k8sName | quote }}
+              annotations:
+                crossplane.io/paused: {{ default "false" $params.reconcilePaused | quote }}
+                gotemplating.fn.crossplane.io/composition-resource-name: sqs-queue
+            spec:
+              deletionPolicy: {{ default "Orphan" $params.deletionPolicy }}
+              providerConfigRef:
+                name: {{ $params.providerConfigName }}
+              forProvider:
+                region: {{ $params.region }}
+                name: {{ $rawName }}
+            {{- if $params.queueDetails }}
+                {{ toYaml $params.queueDetails | nindent 4 }}
+            {{- end }}
+
+    - step: render-sqs-queue-policy
+      functionRef:
+        name: function-go-template
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $params := .observed.composite.resource.spec.parameters }}
+            {{- $rawName := printf "%s-%s" $params.name $params.env }}
+            {{- $k8sName := $rawName | replace "_" "-" | lower | trunc 63 }}
+            {{- if $params.policy }}
+            apiVersion: sqs.aws.upbound.io/v1beta1
+            kind: QueuePolicy
+            metadata:
+              name: {{ printf "%s-policy" $k8sName | quote }}
+              annotations:
+                crossplane.io/paused: {{ default "false" $params.reconcilePaused | quote }}
+                gotemplating.fn.crossplane.io/composition-resource-name: sqs-queue-policy
+            spec:
+              deletionPolicy: {{ default "Orphan" $params.deletionPolicy }}
+              providerConfigRef:
+                name: {{ $params.providerConfigName }}
+              forProvider:
+                region: {{ $params.region }}
+                policy: {{ $params.policy | quote }}
+                queueUrlRef:
+                  name: {{ $k8sName | quote }}
+            {{- end }}
+
+    - step: automatically-detect-ready-composed-resources
+      functionRef:
+        name: function-auto-ready
